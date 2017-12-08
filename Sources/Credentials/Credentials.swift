@@ -18,10 +18,7 @@ import Kitura
 import KituraNet
 import KituraSession
 import LoggerAPI
-
 import Foundation
-
-import SwiftyJSON
 
 // MARK Credentials
 
@@ -89,10 +86,10 @@ public class Credentials : RouterMiddleware {
                                     onSuccess: { userProfile in
                                         request.userProfile = userProfile
                                         next()
-                    },
+                },
                                     onFailure: { status, headers in
                                         self.fail(response: response, status: status, headers: headers)
-                    },
+                },
                                     onPass: { status, headers in
                                         // First pass parameters are saved
                                         if let status = status, passStatus == nil {
@@ -100,11 +97,11 @@ public class Credentials : RouterMiddleware {
                                             passHeaders = headers
                                         }
                                         callback!()
-                    },
+                },
                                     inProgress: {
                                         self.redirectUnauthorized(response: response)
                                         next()
-                    }
+                }
                 )
             }
             else {
@@ -133,10 +130,11 @@ public class Credentials : RouterMiddleware {
     /// - Parameter for request: The `RouterRequest` to get the URL.
     /// - Returns: A String containing the URL, or nil if there is no session or the URL is not set.
     public static func getRedirectingReturnTo(for request: RouterRequest) -> String? {
-        guard let session = request.session, session["returnTo"].type != .null else {
+        guard let session = request.session, session["returnTo"] != nil else {
+            //        guard let session = request.session, session["returnTo"].type != .null else {
             return nil
         }
-        return session["returnTo"].stringValue
+        return (session["returnTo"] as? String) ?? ""
     }
     
     /// Set the URL to which the flow will return to after successfully authenticating using a redirecting plugin.
@@ -146,7 +144,7 @@ public class Credentials : RouterMiddleware {
     /// - Parameter for request: The `RouterRequest` to set the URL.
     public static func setRedirectingReturnTo(_ returnTo: String, for request: RouterRequest) {
         if let session = request.session {
-            session["returnTo"] = JSON(returnTo)
+            session["returnTo"] = returnTo
         }
     }
     
@@ -246,16 +244,16 @@ public class Credentials : RouterMiddleware {
                                             }
                                             self.redirectAuthorized(response: response, path: redirect)
                                             next()
-                        },
+                    },
                                         onFailure: { _, _ in
                                             self.redirectUnauthorized(response: response, path: failureRedirect)
-                        },
+                    },
                                         onPass: { _, _ in
                                             self.redirectUnauthorized(response: response, path: failureRedirect)
-                        },
+                    },
                                         inProgress: {
                                             next()
-                        }
+                    }
                     )
                 }
                 else {
@@ -289,8 +287,8 @@ public class Credentials : RouterMiddleware {
     
     static func restoreUserProfile(from session: SessionState) -> UserProfile? {
         let sessionUserProfile = session["userProfile"]
-        if sessionUserProfile.type != .null  {
-            if let dictionary = sessionUserProfile.dictionaryObject,
+        if sessionUserProfile != nil  {
+            if let dictionary = sessionUserProfile as? [String:Codable],
                 let displayName = dictionary["displayName"] as? String,
                 let provider = dictionary["provider"] as? String,
                 let id = dictionary["id"] as? String {
@@ -303,11 +301,11 @@ public class Credentials : RouterMiddleware {
                 }
                 
                 var userEmails: [UserProfile.UserProfileEmail]?
-
+                
                 if let emails = dictionary["emails"] as? [String],
                     let types = dictionary["emailTypes"] as? [String] {
                     userEmails = []
-
+                    
                     for (index, email) in emails.enumerated() {
                         let userEmail = UserProfile.UserProfileEmail(value: email, type: types[index])
                         userEmails?.append(userEmail)
@@ -315,10 +313,10 @@ public class Credentials : RouterMiddleware {
                 }
                 
                 var userPhotos: [UserProfile.UserProfilePhoto]?
-
+                
                 if let photos = dictionary["photos"] as? [String] {
                     userPhotos = []
-
+                    
                     for photo in photos {
                         let userPhoto = UserProfile.UserProfilePhoto(photo)
                         userPhotos?.append(userPhoto)
@@ -332,7 +330,7 @@ public class Credentials : RouterMiddleware {
     }
     
     private static func store(userProfile: UserProfile, in session: SessionState) {
-        var dictionary = [String:Any]()
+        var dictionary = [String:Codable]()
         dictionary["displayName"] = userProfile.displayName
         dictionary["provider"] = userProfile.provider
         dictionary["id"] = userProfile.id
@@ -366,6 +364,7 @@ public class Credentials : RouterMiddleware {
             dictionary["extendedProperties"] = userProfile.extendedProperties
         }
         
-        session["userProfile"] = JSON(dictionary)
+        session["userProfile"] = dictionary
     }
 }
+
